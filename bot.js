@@ -5,23 +5,20 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const puppeteer = require('puppeteer');
 const { fetchTokenData } = require('./utils/fetchTokenData');
-const bodyParser = require('body-parser');
+const path = require('path');
 
+// Express setup
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const RENDER_URL = process.env.RENDER_URL; // e.g., https://your-bot.onrender.com
 
+// Use body parser for handling POST requests from Telegram webhook
+app.use(express.json());
 
-app.use(bodyParser.json());
+// Telegram bot using webhook (instead of polling)
+if (process.env.ENABLE_BOT === 'true') {
+    const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
 
-if (process.env.ENABLE_BOT) {
-    const bot = new TelegramBot(BOT_TOKEN, { webHook: { port: PORT } });
-
-    // Set webhook
-    bot.setWebHook(`${RENDER_URL}/bot${BOT_TOKEN}`);
-
-    // Puppeteer screenshot
+    // Puppeteer screenshot function
     async function captureIframeScreenshotAndUpload(url) {
         const browser = await puppeteer.launch({
             args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -32,7 +29,7 @@ if (process.env.ENABLE_BOT) {
         await page.setViewport({ width: 1280, height: 720 });
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        const buffer = await page.screenshot();
+        const buffer = await page.screenshot(); // No file system
         await browser.close();
 
         return new Promise((resolve, reject) => {
@@ -43,13 +40,15 @@ if (process.env.ENABLE_BOT) {
                 },
                 (error, result) => {
                     if (error) return reject(error);
-                    resolve(result.secure_url);
+                    resolve(result.secure_url); // Cloudinary image URL
                 }
             );
+
             streamifier.createReadStream(buffer).pipe(uploadStream);
         });
     }
 
+    // Send screenshot with inline button
     async function sendIframeScreenshot(chatId, tokenInfo, contractAddress) {
         const iframeUrl = `https://app.bubblemaps.io/${tokenInfo.chain}/token/${contractAddress}?small_text&hide_context`;
         const screenshotUrl = await captureIframeScreenshotAndUpload(iframeUrl);
@@ -69,37 +68,15 @@ if (process.env.ENABLE_BOT) {
         });
     }
 
-    // Webhook endpoint
-    app.post(`/bot${BOT_TOKEN}`, (req, res) => {
-        bot.processUpdate(req.body);
-        res.sendStatus(200);
-    });
+    // Setting up webhook for Telegram bot
+    const webhookUrl = `${process.env.HEROKU_URL}/webhook`;  // Use the Railway URL here
+    bot.setWebHook(webhookUrl);
 
-    // /start handler
-    bot.onText(/\/start/, async (msg) => {
-        const chatId = msg.chat.id;
-        await bot.sendMessage(chatId, `
-👋 *Welcome to the Bubblemaps Token Analyzer Bot!*
-
-This bot lets you:
-• 🧠 Analyze any EVM-compatible token
-• 🔎 Visualize top holders on a Bubble Map
-• 📊 Review decentralization metrics
-
-To get started:
-👉 Just *send a contract address (CA)* — 40 to 64 hex characters.
-
-👉 Example: *0x1234567890abcdef1234567890abcdef12345678*
-        `, {
-            parse_mode: 'Markdown',
-            disable_web_page_preview: true,
-        });
-    });
-
-    // Catch all messages
-    bot.on('message', async (msg) => {
-        const chatId = msg.chat.id;
-        const input = msg.text?.trim();
+    // Webhook handler to process incoming updates
+    app.post('/webhook', async (req, res) => {
+        const update = req.body;
+        const chatId = update.message.chat.id;
+        const input = update.message.text?.trim();
 
         if (input === '/start') return;
 
@@ -158,14 +135,17 @@ ${topHolders}
                 parse_mode: "Markdown"
             });
         }
+
+        res.send('ok');
     });
 }
 
-// Health check
+// Health check route for Railway
 app.get('/', (req, res) => {
     res.send('🟢 Bot is alive!');
 });
 
+// Start Express server
 app.listen(PORT, () => {
-    console.log(`🚀 Webhook-based server running on port ${PORT}`);
+    console.log(`🚀 Server is running on port ${PORT}`);
 });
