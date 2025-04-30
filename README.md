@@ -3,6 +3,10 @@
 
 # 💬 Bubblemaps Telegram Bot
 
+Watch a full demo of the Bubblemaps Token Analyzer Bot on YouTube:
+
+[![Watch on YouTube](https://img.youtube.com/vi/rjYZFnBdVp4/0.jpg)](https://youtu.be/rjYZFnBdVp4)
+
 A beautifully crafted Telegram bot that delivers insightful token visualizations directly to your chat. Powered by Bubblemaps API, it allows users to send any supported token contract address and instantly receive:
 
 - 📊 Key token metrics (name, symbol, chain, supply)
