@@ -1,3 +1,5 @@
+const cloudinary = require('./cloudinary');
+const streamifier = require('streamifier');
 require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
@@ -13,22 +15,42 @@ const PORT = process.env.PORT || 3000;
 
 
 // Puppeteer screenshot
-async function captureIframeScreenshot(url) {
+async function captureIframeScreenshotAndUpload(url) {
     const browser = await puppeteer.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--single-process', '--no-zygote'], // Render compatibility
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
+
     const page = await browser.newPage();
     await page.goto(url);
+    await page.setViewport({ width: 1280, height: 720 });
     await new Promise(resolve => setTimeout(resolve, 5000));
-    await page.screenshot({ path: 'screenshot.png' });
+
+    const buffer = await page.screenshot(); // No file system
     await browser.close();
+
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            {
+                folder: 'bubblemaps_bot',
+                public_id: `screenshot-${Date.now()}`,
+            },
+            (error, result) => {
+                if (error) return reject(error);
+                resolve(result.secure_url); // Cloudinary image URL
+            }
+        );
+
+        streamifier.createReadStream(buffer).pipe(uploadStream);
+    });
 }
 
 // Send screenshot with inline button
 async function sendIframeScreenshot(chatId, tokenInfo, contractAddress) {
     const iframeUrl = `https://app.bubblemaps.io/${tokenInfo.chain}/token/${contractAddress}?small_text&hide_context`;
-    await captureIframeScreenshot(iframeUrl);
-    await bot.sendPhoto(chatId, path.join(__dirname, 'screenshot.png'), {
+    const screenshotUrl = await captureIframeScreenshotAndUpload(iframeUrl);
+
+    await bot.sendPhoto(chatId, screenshotUrl, {
+        caption: '🫧 BubbleMap Preview',
         reply_markup: {
             inline_keyboard: [
                 [
@@ -41,6 +63,7 @@ async function sendIframeScreenshot(chatId, tokenInfo, contractAddress) {
         },
     });
 }
+
 
 if (process.env.ENABLE_BOT === 'true') {
     const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
