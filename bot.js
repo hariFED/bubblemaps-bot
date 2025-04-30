@@ -10,7 +10,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Telegram bot using polling (not webhook)
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+if (process.env.ENABLE_BOT === 'true') {
+    const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+    // bot logic goes here
+}
 
 // Puppeteer screenshot
 async function captureIframeScreenshot(url) {
