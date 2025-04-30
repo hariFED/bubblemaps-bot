@@ -62,7 +62,7 @@ TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 ## 🛠️ Run Locally
 
 ```bash
-node index.js
+node bot.js
 ```
 
 Your bot will start polling and respond to valid 40-64 character token contract addresses.
