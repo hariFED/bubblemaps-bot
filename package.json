@@ -1,9 +1,11 @@
 {
   "name": "bubblemaps-bot",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.2.0",
+  "description": "This Telegram bot helps users analyze any EVM-compatible token by simply sending a contract address. It fetches real-time token data using the Bubblemaps API and visualizes top holders through interactive Bubble Maps",
   "main": "bot.js",
   "scripts": {
+    "start": "node bot.js",
+    "dev": "nodemon bot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -13,7 +15,11 @@
   "dependencies": {
     "axios": "^1.8.4",
     "dotenv": "^16.5.0",
+    "express": "^5.1.0",
     "node-telegram-bot-api": "^0.66.0",
     "puppeteer": "^24.6.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
   }
 }

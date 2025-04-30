@@ -1,29 +1,33 @@
 require('dotenv').config();
+const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const puppeteer = require('puppeteer');
 const { fetchTokenData } = require('./utils/fetchTokenData');
 const path = require('path');
 
+// Express setup
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Telegram bot using polling (not webhook)
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
-// Capture screenshot of the iframe URL using Puppeteer
+// Puppeteer screenshot
 async function captureIframeScreenshot(url) {
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+        args: ['--no-sandbox', '--disable-setuid-sandbox'], // for Render compatibility
+    });
     const page = await browser.newPage();
     await page.goto(url);
-
-    // Wait for 4-5 seconds before taking the screenshot
     await new Promise(resolve => setTimeout(resolve, 5000));
     await page.screenshot({ path: 'screenshot.png' });
     await browser.close();
 }
 
-// Send the screenshot to Telegram
+// Send screenshot with inline button
 async function sendIframeScreenshot(chatId, tokenInfo, contractAddress) {
     const iframeUrl = `https://app.bubblemaps.io/${tokenInfo.chain}/token/${contractAddress}?small_text&hide_context`;
     await captureIframeScreenshot(iframeUrl);
-
-    // Send image to Telegram
     await bot.sendPhoto(chatId, path.join(__dirname, 'screenshot.png'), {
         reply_markup: {
             inline_keyboard: [
@@ -38,12 +42,34 @@ async function sendIframeScreenshot(chatId, tokenInfo, contractAddress) {
     });
 }
 
-// Handle contract address input
+// /start handler
+bot.onText(/\/start/, async (msg) => {
+    const chatId = msg.chat.id;
+    await bot.sendMessage(chatId, `
+👋 *Welcome to the Bubblemaps Token Analyzer Bot!*
+
+This bot lets you:
+• 🧠 Analyze any EVM-compatible token
+• 🔎 Visualize top holders on a Bubble Map
+• 📊 Review decentralization metrics
+
+To get started:
+👉 Just *send a contract address (CA)* — 40 to 64 hex characters.
+
+👉 Example: *0x1234567890abcdef1234567890abcdef12345678*
+    `, {
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true,
+    });
+});
+
+// Catch all messages
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const input = msg.text?.trim();
 
-    // Check if input is exactly 40 characters
+    if (input === '/start') return;
+
     if (input && /^[a-zA-Z0-9]{40,64}$/.test(input)) {
         try {
             await bot.sendAnimation(chatId, 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExZ3RycXFlOHlvbG1nbWdodWM0b3d2MWNqMnpqeG85bWd5bHZqZnJscSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/HdkzWcDvoRmLmkrWOt/giphy.gif', {
@@ -58,24 +84,19 @@ bot.on('message', async (msg) => {
 
             await sendIframeScreenshot(chatId, tokenInfo, input);
 
-            const bubbleMapLink = `https://bubblemaps.io?chain=${tokenInfo.chain}&token=${input}`;
-
             await bot.sendMessage(chatId, `
 🎯 *BubbleMap Deep Dive Complete!*
 
-📜 *Contract Address:-*
-\`${input}\`
-
+📜 *Contract Address:* \`${input}\`
 🧬 *Chain:* \`${tokenInfo.chain.toUpperCase()}\`
 🏷️ *Token:* *${tokenInfo.name || 'N/A'}*  (${tokenInfo.symbol || 'N/A'})
 📦 *Max Supply:* \`${tokenInfo.maxsupply || 'N/A'}\`
 🧠 *Decentralization Score:* \`${tokenInfo.decentralizationScore || 'N/A'}\`
-                **Identified Supply in CEXs:** \`${tokenInfo.percentcexs || 'N/A'}\`
-                **Identified Supply in Contracts:** \`${tokenInfo.percentcontracts || 'N/A'}\`
-    
+🔄 *Supply in CEXs:* \`${tokenInfo.percentcexs || 'N/A'}\`
+ℹ *Supply in Contracts:* \`${tokenInfo.percentcontracts || 'N/A'}\`
+
 🏆 *Top Holders*:
 ${topHolders}
-    
             `, { parse_mode: 'Markdown' });
 
             await bot.sendMessage(chatId, "😊 If you're happy with the result, please provide the next contract address. Time is ticking! ⏳", {
@@ -85,15 +106,15 @@ ${topHolders}
         } catch (err) {
             console.error(err);
             await bot.sendMessage(chatId, `
-    🚫 *Oops! Couldn't find the contract.*
-    
-    🔍 Please check if the contract address is correct.
-    
-    📌 This bot supports:
-    • Chains available on *Bubblemaps*
-    • Contracts with historical data only
-    
-    💬 Need help? Reach out here: [@Bubblemaps_BD](https://t.me/Bubblemaps_BD)
+🚫 *Oops! Couldn't find the contract.*
+
+🔍 Please check if the contract address is correct.
+
+📌 This bot supports:
+• Chains available on *Bubblemaps*
+• Contracts with historical data only
+
+💬 Need help? Reach out here: [@Bubblemaps_BD](https://t.me/Bubblemaps_BD)
             `, {
                 parse_mode: 'Markdown',
                 disable_web_page_preview: true
@@ -106,4 +127,12 @@ ${topHolders}
     }
 });
 
+// Health check route for Render
+app.get('/', (req, res) => {
+    res.send('🟢 Bot is alive!');
+});
 
+// Start Express server
+app.listen(PORT, () => {
+    console.log(`🚀 Server is running on port ${PORT}`);
+});
