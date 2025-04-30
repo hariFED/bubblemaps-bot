@@ -88,14 +88,14 @@ bot.on('message', async (msg) => {
 🎯 * BubbleMap Deep Dive Complete! *
 
 📜 * Contract Address: -*
-            \${ input } \
+            ${input} 
 
-🧬 * Chain:* \${ tokenInfo.chain.toUpperCase() } \
+🧬 * Chain:* ${ tokenInfo.chain.toUpperCase() } 
 🏷️ * Token:* * ${tokenInfo.name || 'N/A'}* (${tokenInfo.symbol || 'N/A'})
-📦 * Max Supply:* \${ tokenInfo.maxsupply || 'N/A' } \
-🧠 * Decentralization Score:* \${ tokenInfo.decentralizationScore || 'N/A' } \
-                ** Identified Supply in CEXs:** \${ tokenInfo.percentcexs || 'N/A' } \
-                ** Identified Supply in Contracts:** \${ tokenInfo.percentcontracts || 'N/A' } \
+📦 * Max Supply:* ${ tokenInfo.maxsupply || 'N/A' } 
+🧠 * Decentralization Score:* ${ tokenInfo.decentralizationScore || 'N/A' } 
+                ** Identified Supply in CEXs:** ${ tokenInfo.percentcexs || 'N/A' } 
+                ** Identified Supply in Contracts:** ${ tokenInfo.percentcontracts || 'N/A' } 
     
 🏆 * Top Holders *:
 ${topHolders}`
