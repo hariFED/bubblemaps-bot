@@ -5,69 +5,75 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const puppeteer = require('puppeteer');
 const { fetchTokenData } = require('./utils/fetchTokenData');
-const path = require('path');
+const bodyParser = require('body-parser');
 
-// Express setup
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const RENDER_URL = process.env.RENDER_URL; // e.g., https://your-bot.onrender.com
 
-// Telegram bot using polling (not webhook)
 
+app.use(bodyParser.json());
 
-// Puppeteer screenshot
-async function captureIframeScreenshotAndUpload(url) {
-    const browser = await puppeteer.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+if (ENABLE_BOT) {
+    const bot = new TelegramBot(BOT_TOKEN, { webHook: { port: PORT } });
 
-    const page = await browser.newPage();
-    await page.goto(url);
-    await page.setViewport({ width: 1280, height: 720 });
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Set webhook
+    bot.setWebHook(`${RENDER_URL}/bot${BOT_TOKEN}`);
 
-    const buffer = await page.screenshot(); // No file system
-    await browser.close();
+    // Puppeteer screenshot
+    async function captureIframeScreenshotAndUpload(url) {
+        const browser = await puppeteer.launch({
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        });
 
-    return new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-            {
-                folder: 'bubblemaps_bot',
-                public_id: `screenshot-${Date.now()}`,
-            },
-            (error, result) => {
-                if (error) return reject(error);
-                resolve(result.secure_url); // Cloudinary image URL
-            }
-        );
+        const page = await browser.newPage();
+        await page.goto(url);
+        await page.setViewport({ width: 1280, height: 720 });
+        await new Promise(resolve => setTimeout(resolve, 5000));
 
-        streamifier.createReadStream(buffer).pipe(uploadStream);
-    });
-}
+        const buffer = await page.screenshot();
+        await browser.close();
 
-// Send screenshot with inline button
-async function sendIframeScreenshot(chatId, tokenInfo, contractAddress) {
-    const iframeUrl = `https://app.bubblemaps.io/${tokenInfo.chain}/token/${contractAddress}?small_text&hide_context`;
-    const screenshotUrl = await captureIframeScreenshotAndUpload(iframeUrl);
+        return new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                {
+                    folder: 'bubblemaps_bot',
+                    public_id: `screenshot-${Date.now()}`,
+                },
+                (error, result) => {
+                    if (error) return reject(error);
+                    resolve(result.secure_url);
+                }
+            );
+            streamifier.createReadStream(buffer).pipe(uploadStream);
+        });
+    }
 
-    await bot.sendPhoto(chatId, screenshotUrl, {
-        caption: '🫧 BubbleMap Preview',
-        reply_markup: {
-            inline_keyboard: [
-                [
-                    {
-                        text: '🔎 View Full Bubble Map',
-                        url: `https://app.bubblemaps.io/${tokenInfo.chain}/token/${contractAddress}?theme=themename&loading_color=ffffff`,
-                    },
+    async function sendIframeScreenshot(chatId, tokenInfo, contractAddress) {
+        const iframeUrl = `https://app.bubblemaps.io/${tokenInfo.chain}/token/${contractAddress}?small_text&hide_context`;
+        const screenshotUrl = await captureIframeScreenshotAndUpload(iframeUrl);
+
+        await bot.sendPhoto(chatId, screenshotUrl, {
+            caption: '🫧 BubbleMap Preview',
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: '🔎 View Full Bubble Map',
+                            url: `https://app.bubblemaps.io/${tokenInfo.chain}/token/${contractAddress}?theme=themename&loading_color=ffffff`,
+                        },
+                    ],
                 ],
-            ],
-        },
+            },
+        });
+    }
+
+    // Webhook endpoint
+    app.post(`/bot${BOT_TOKEN}`, (req, res) => {
+        bot.processUpdate(req.body);
+        res.sendStatus(200);
     });
-}
-
-
-if (process.env.ENABLE_BOT === 'true') {
-    const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
-    // bot logic goes here
 
     // /start handler
     bot.onText(/\/start/, async (msg) => {
@@ -84,7 +90,7 @@ To get started:
 👉 Just *send a contract address (CA)* — 40 to 64 hex characters.
 
 👉 Example: *0x1234567890abcdef1234567890abcdef12345678*
-    `, {
+        `, {
             parse_mode: 'Markdown',
             disable_web_page_preview: true,
         });
@@ -124,7 +130,7 @@ To get started:
 
 🏆 *Top Holders*:
 ${topHolders}
-            `, { parse_mode: 'Markdown' });
+                `, { parse_mode: 'Markdown' });
 
                 await bot.sendMessage(chatId, "😊 If you're happy with the result, please provide the next contract address. Time is ticking! ⏳", {
                     parse_mode: "Markdown"
@@ -142,7 +148,7 @@ ${topHolders}
 • Contracts with historical data only
 
 💬 Need help? Reach out here: [@Bubblemaps_BD](https://t.me/Bubblemaps_BD)
-            `, {
+                `, {
                     parse_mode: 'Markdown',
                     disable_web_page_preview: true
                 });
@@ -154,12 +160,12 @@ ${topHolders}
         }
     });
 }
-// Health check route for Render
+
+// Health check
 app.get('/', (req, res) => {
     res.send('🟢 Bot is alive!');
 });
 
-// Start Express server
 app.listen(PORT, () => {
-    console.log(`🚀 Server is running on port ${PORT}`);
+    console.log(`🚀 Webhook-based server running on port ${PORT}`);
 });
