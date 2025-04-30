@@ -15,7 +15,7 @@ const RENDER_URL = process.env.RENDER_URL; // e.g., https://your-bot.onrender.co
 
 app.use(bodyParser.json());
 
-if (ENABLE_BOT) {
+if (process.env.ENABLE_BOT) {
     const bot = new TelegramBot(BOT_TOKEN, { webHook: { port: PORT } });
 
     // Set webhook
