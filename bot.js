@@ -15,7 +15,7 @@ const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 // Puppeteer screenshot
 async function captureIframeScreenshot(url) {
     const browser = await puppeteer.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox'], // for Render compatibility
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--single-process', '--no-zygote'], // Render compatibility
     });
     const page = await browser.newPage();
     await page.goto(url);
