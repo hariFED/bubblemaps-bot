@@ -1,4 +1,6 @@
 
+> ⚠️ **Note:** Unfortunately, there might be situations where the bot is not hosted online. In such cases, we kindly request you to run the bot locally by following the instructions below.
+
 # 💬 Bubblemaps Telegram Bot
 
 A beautifully crafted Telegram bot that delivers insightful token visualizations directly to your chat. Powered by Bubblemaps API, it allows users to send any supported token contract address and instantly receive:
